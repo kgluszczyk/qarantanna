@@ -85,7 +85,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createNotification(notificationManager: NotificationManager, notificationText: String) {
-        val contentIntent = Intent(this, MainActivity::class.java)
+        val contentIntent = Intent(this, VideoActivity::class.java)
         val contentPendingIntent = PendingIntent.getActivity(this, 1, contentIntent, 0)
         val notificationBuilder = NotificationCompat.Builder(this, ChannelId)
             .setSmallIcon(R.drawable.ic_baseline_data_usage_24)
