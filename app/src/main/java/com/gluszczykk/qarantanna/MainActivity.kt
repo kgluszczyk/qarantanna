@@ -13,14 +13,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     val accelerometerData = Channel<SensorOutput>(Channel.UNLIMITED)
+    val proximityData = Channel<SensorOutput>(Channel.UNLIMITED)
 
     data class SensorOutput(val name: String, val value: String, val timestamp: String)
+
+    private operator fun SensorOutput.plus(proximityEvent: SensorOutput) = listOf(this, proximityEvent)
 
     fun SensorOutput.toDisplayValue() = "${name}, ${value}, ${timestamp}"
 
@@ -55,18 +60,26 @@ class MainActivity : AppCompatActivity() {
 
     private fun observeData() {
         CoroutineScope(Dispatchers.Main).launch {
-            accelerometerData.consumeAsFlow().collect { sensorOutput ->
-                findViewById<TextView>(R.id.sensor_output).text = sensorOutput.toDisplayValue()
+            combine(
+                accelerometerData.consumeAsFlow(),
+                proximityData.consumeAsFlow()
+            ) { accelerometerEvent, proximityEvent -> accelerometerEvent + proximityEvent }.collect { sensorOutput ->
+                    sensorOutput.map { sensorOutput -> sensorOutput.toDisplayValue() }
+                        .reduce { acc, sensorOutput ->
+                            "$acc\n$sensorOutput"
+                        }.also {
+                            findViewById<TextView>(R.id.sensor_output).text = it
+                        }
             }
         }
     }
 
     private fun setUpProximitySensor(sensorManager: SensorManager) {
         val proximitySensor = sensorManager.getDefaultSensor(TYPE_PROXIMITY)
-/*        sensorManager.registerListener(
-            sensorEventListener, proximitySensor,
+        sensorManager.registerListener(
+            sensorEventListener(proximityData), proximitySensor,
             SensorManager.SENSOR_DELAY_UI
-        )*/
+        )
     }
 
     private fun setUpAccelerometerSensor(sensorManager: SensorManager) {
