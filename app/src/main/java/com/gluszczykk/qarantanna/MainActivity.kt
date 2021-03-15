@@ -10,6 +10,7 @@ import android.hardware.Sensor.TYPE_PROXIMITY
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.TextView
@@ -68,15 +69,27 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         val sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         setUpProximitySensor(sensorManager)
         setUpAccelerometerSensor(sensorManager)
-        observeData()
-        createNotification()
+        createNotificationChannel(notificationManager)
+        observeData(notificationManager)
     }
 
-    private fun createNotification() {
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+    private fun createNotification(notificationManager: NotificationManager, notificationText: String) {
+        val contentIntent = Intent(this, MainActivity::class.java)
+        val contentPendingIntent = PendingIntent.getActivity(this, 1, contentIntent, 0)
+        val notificationBuilder = NotificationCompat.Builder(this, ChannelId)
+            .setSmallIcon(R.drawable.ic_baseline_data_usage_24)
+            .setContentTitle("Sensory")
+            .setContentText(notificationText)
+            .setContentIntent(contentPendingIntent)
+            .setStyle(NotificationCompat.BigTextStyle())
+        notificationManager.notify(1, notificationBuilder.build())
+    }
+
+    private fun createNotificationChannel(notificationManager: NotificationManager) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationChannel = NotificationChannel(
                 ChannelId,
                 "Sensory",
@@ -85,16 +98,9 @@ class MainActivity : AppCompatActivity() {
             notificationManager.createNotificationChannel(notificationChannel)
 
         }
-        val contentIntent = Intent(this, MainActivity::class.java)
-        val contentPendingIntent = PendingIntent.getActivity(this, 1, contentIntent, 0)
-        val notificationBuilder = NotificationCompat.Builder(this, ChannelId)
-            .setSmallIcon(R.drawable.ic_baseline_data_usage_24)
-            .setContentTitle("Sensory")
-            .setContentIntent(contentPendingIntent)
-        notificationManager.notify(1, notificationBuilder.build())
     }
 
-    private fun observeData() {
+    private fun observeData(notificationManager: NotificationManager) {
         CoroutineScope(Dispatchers.Main).launch {
             combine(
                 accelerometerData.consumeAsFlow().distinctUntilChangedBy { it.value },
@@ -104,8 +110,9 @@ class MainActivity : AppCompatActivity() {
                     sensorOutput.map { sensorOutput -> sensorOutput.toDisplayValue() }
                         .reduce { acc, sensorOutput ->
                             "$acc\n$sensorOutput"
-                        }.also {
-                            findViewById<TextView>(R.id.sensor_output).text = it
+                        }.also { label ->
+                            createNotification(notificationManager, label)
+                            findViewById<TextView>(R.id.sensor_output).text = label
                         }
                 }
         }
