@@ -1,5 +1,9 @@
 package com.gluszczykk.qarantanna
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.Sensor.TYPE_ACCELEROMETER
 import android.hardware.Sensor.TYPE_PROXIMITY
@@ -9,6 +13,7 @@ import android.hardware.SensorManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.TextView
+import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -24,6 +29,11 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+
+        const val ChannelId = "1"
+    }
 
     val accelerometerData = Channel<SensorOutput>(Channel.UNLIMITED)
     val proximityData = Channel<SensorOutput>(Channel.UNLIMITED)
@@ -61,6 +71,27 @@ class MainActivity : AppCompatActivity() {
         setUpProximitySensor(sensorManager)
         setUpAccelerometerSensor(sensorManager)
         observeData()
+        createNotification()
+    }
+
+    private fun createNotification() {
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val notificationChannel = NotificationChannel(
+                ChannelId,
+                "Sensory",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            notificationManager.createNotificationChannel(notificationChannel)
+
+        }
+        val contentIntent = Intent(this, MainActivity::class.java)
+        val contentPendingIntent = PendingIntent.getActivity(this, 1, contentIntent, 0)
+        val notificationBuilder = NotificationCompat.Builder(this, ChannelId)
+            .setSmallIcon(R.drawable.ic_baseline_data_usage_24)
+            .setContentTitle("Sensory")
+            .setContentIntent(contentPendingIntent)
+        notificationManager.notify(1, notificationBuilder.build())
     }
 
     private fun observeData() {
@@ -76,7 +107,7 @@ class MainActivity : AppCompatActivity() {
                         }.also {
                             findViewById<TextView>(R.id.sensor_output).text = it
                         }
-            }
+                }
         }
     }
 
