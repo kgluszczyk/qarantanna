@@ -6,14 +6,16 @@ import android.media.MediaPlayer
 import android.os.IBinder
 
 class MusicService : Service() {
+    val mediaPlayer = MediaPlayer()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        MediaPlayer().run {
+        val onStartCommand = super.onStartCommand(intent, flags, startId)
+        mediaPlayer.run {
             setDataSource("https://file-examples-com.github.io/uploads/2017/11/file_example_MP3_1MG.mp3")
             prepare()
             start()
         }
-        return super.onStartCommand(intent, flags, startId)
+        return onStartCommand
     }
 
     override fun onBind(intent: Intent?): IBinder? {

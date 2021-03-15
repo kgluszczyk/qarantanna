@@ -11,6 +11,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Qarantanna">
+        <service android:name=".MusicService"/>
         <activity android:name=".VideoActivity"/>
         <activity
             android:name=".MainActivity"

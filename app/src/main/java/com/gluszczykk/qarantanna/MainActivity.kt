@@ -1,33 +1,31 @@
 package com.gluszczykk.qarantanna
 
+import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.graphics.Bitmap
 import android.hardware.Sensor
 import android.hardware.Sensor.TYPE_ACCELEROMETER
 import android.hardware.Sensor.TYPE_PROXIMITY
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.media.MediaPlayer
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.provider.MediaStore
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.consumeAsFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -36,6 +34,15 @@ class MainActivity : AppCompatActivity() {
 
         const val ChannelId = "1"
         const val NotificationId = 1
+        const val CameraKey = "CameraKey"
+    }
+
+    private var image: Bitmap? = null
+
+    private val startCameraForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            image = result.data?.extras?.get("data") as Bitmap
+        }
     }
 
     val accelerometerData = Channel<SensorOutput>(Channel.UNLIMITED)
@@ -84,15 +91,38 @@ class MainActivity : AppCompatActivity() {
         notificationManager.cancel(NotificationId)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(CameraKey, false)) {
+            startCameraForResult.launch(Intent(MediaStore.ACTION_IMAGE_CAPTURE))
+        }
+    }
+
     private fun createNotification(notificationManager: NotificationManager, notificationText: String) {
-        val contentIntent = Intent(this, VideoActivity::class.java)
+        val contentIntent = Intent(this, MainActivity::class.java)
         val contentPendingIntent = PendingIntent.getActivity(this, 1, contentIntent, 0)
+
+        val musicIntent = Intent(this, MusicService::class.java)
+        val musicPendingIntent = PendingIntent.getService(this, 2, musicIntent, 0)
+
+        val cameraIntent = Intent(this, MainActivity::class.java).apply {
+            putExtra(CameraKey, true)
+        }
+        val cameraPendingIntent = PendingIntent.getActivity(this, 3, cameraIntent, 0)
+
         val notificationBuilder = NotificationCompat.Builder(this, ChannelId)
             .setSmallIcon(R.drawable.ic_baseline_data_usage_24)
             .setContentTitle("Sensory")
             .setContentText(notificationText)
             .setContentIntent(contentPendingIntent)
-            .setStyle(NotificationCompat.BigTextStyle())
+            .addAction(R.drawable.ic_baseline_data_usage_24, "Music", musicPendingIntent)
+            .addAction(R.drawable.ic_baseline_data_usage_24, "Camera", cameraPendingIntent)
+
+        if (image != null) {
+            notificationBuilder.setStyle(NotificationCompat.BigPictureStyle().bigPicture(image))
+        } else {
+            notificationBuilder.setStyle(NotificationCompat.BigTextStyle())
+        }
         notificationManager.notify(NotificationId, notificationBuilder.build())
     }
 
