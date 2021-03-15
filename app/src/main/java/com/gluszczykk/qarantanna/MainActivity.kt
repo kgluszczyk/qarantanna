@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -34,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
 
         const val ChannelId = "1"
+        const val NotificationId = 1
     }
 
     val accelerometerData = Channel<SensorOutput>(Channel.UNLIMITED)
@@ -76,6 +78,12 @@ class MainActivity : AppCompatActivity() {
         observeData(notificationManager)
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(NotificationId)
+    }
+
     private fun createNotification(notificationManager: NotificationManager, notificationText: String) {
         val contentIntent = Intent(this, MainActivity::class.java)
         val contentPendingIntent = PendingIntent.getActivity(this, 1, contentIntent, 0)
@@ -85,7 +93,7 @@ class MainActivity : AppCompatActivity() {
             .setContentText(notificationText)
             .setContentIntent(contentPendingIntent)
             .setStyle(NotificationCompat.BigTextStyle())
-        notificationManager.notify(1, notificationBuilder.build())
+        notificationManager.notify(NotificationId, notificationBuilder.build())
     }
 
     private fun createNotificationChannel(notificationManager: NotificationManager) {
@@ -101,7 +109,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeData(notificationManager: NotificationManager) {
-        CoroutineScope(Dispatchers.Main).launch {
+        lifecycleScope.launch {
             combine(
                 accelerometerData.consumeAsFlow().distinctUntilChangedBy { it.value },
                 proximityData.consumeAsFlow().distinctUntilChangedBy { it.value }

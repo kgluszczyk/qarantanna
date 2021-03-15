@@ -44,4 +44,7 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
 
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.4.2'
+
+    def lifecycle_version = "2.3.0"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_version"
 }
