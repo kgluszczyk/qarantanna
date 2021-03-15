@@ -9,8 +9,20 @@ import android.hardware.SensorManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.TextView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
+
+    val accelerometerData = Channel<SensorOutput>(Channel.UNLIMITED)
+
+    data class SensorOutput(val name: String, val value: String, val timestamp: String)
+
+    fun SensorOutput.toDisplayValue() = "${name}, ${value}, ${timestamp}"
 
     fun SensorEvent.toLabel() = when (sensor.type) {
         TYPE_PROXIMITY -> "${sensor.name} ${values[0]} cm"
@@ -18,14 +30,18 @@ class MainActivity : AppCompatActivity() {
         else -> ""
     }
 
-    private val sensorEventListener = object : SensorEventListener {
-        override fun onSensorChanged(event: SensorEvent) {
-            findViewById<TextView>(R.id.sensor_output).text = event.toLabel()
-        }
+    fun SensorEvent.toSensorOutput() = SensorOutput(sensor.name, toLabel(), "$timestamp")
 
-        override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
-        }
+    private val sensorEventListener = { dataStream: Channel<SensorOutput> ->
+        object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                dataStream.offer(event.toSensorOutput())
+            }
 
+            override fun onAccuracyChanged(sensorOutput: Sensor, accuracy: Int) {
+            }
+
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,20 +50,29 @@ class MainActivity : AppCompatActivity() {
         val sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         setUpProximitySensor(sensorManager)
         setUpAccelerometerSensor(sensorManager)
+        observeData()
+    }
+
+    private fun observeData() {
+        CoroutineScope(Dispatchers.Main).launch {
+            accelerometerData.consumeAsFlow().collect { sensorOutput ->
+                findViewById<TextView>(R.id.sensor_output).text = sensorOutput.toDisplayValue()
+            }
+        }
     }
 
     private fun setUpProximitySensor(sensorManager: SensorManager) {
         val proximitySensor = sensorManager.getDefaultSensor(TYPE_PROXIMITY)
-        sensorManager.registerListener(
+/*        sensorManager.registerListener(
             sensorEventListener, proximitySensor,
             SensorManager.SENSOR_DELAY_UI
-        )
+        )*/
     }
 
     private fun setUpAccelerometerSensor(sensorManager: SensorManager) {
         val proximitySensor = sensorManager.getDefaultSensor(TYPE_ACCELEROMETER)
         sensorManager.registerListener(
-            sensorEventListener, proximitySensor,
+            sensorEventListener(accelerometerData), proximitySensor,
             SensorManager.SENSOR_DELAY_UI
         )
     }
