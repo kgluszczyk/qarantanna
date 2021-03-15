@@ -15,7 +15,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -61,9 +66,10 @@ class MainActivity : AppCompatActivity() {
     private fun observeData() {
         CoroutineScope(Dispatchers.Main).launch {
             combine(
-                accelerometerData.consumeAsFlow(),
-                proximityData.consumeAsFlow()
-            ) { accelerometerEvent, proximityEvent -> accelerometerEvent + proximityEvent }.collect { sensorOutput ->
+                accelerometerData.consumeAsFlow().distinctUntilChangedBy { it.value },
+                proximityData.consumeAsFlow().distinctUntilChangedBy { it.value }
+            ) { accelerometerEvent, proximityEvent -> accelerometerEvent + proximityEvent }
+                .collect { sensorOutput ->
                     sensorOutput.map { sensorOutput -> sensorOutput.toDisplayValue() }
                         .reduce { acc, sensorOutput ->
                             "$acc\n$sensorOutput"
