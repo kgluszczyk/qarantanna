@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationCompat
@@ -31,12 +32,17 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.bumptech.glide.Glide
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -94,11 +100,33 @@ class MainActivity : AppCompatActivity() {
         setUpProximitySensor(sensorManager)
         setUpAccelerometerSensor(sensorManager)
         createNotificationChannel(notificationManager)
-        observeData(notificationManager)
 
-        setUpLogo()
-        scheduleAlarm()
-        setUpWorkManager()
+        lifecycleScope.launch {
+            val config = fetchConfig().await()
+            observeData(notificationManager)
+
+            setUpLogo(config.logoUrl)
+            scheduleAlarm()
+            setUpWorkManager()
+        }
+    }
+
+    private fun fetchConfig() : Deferred<Config> {
+        val httpClient = OkHttpClient.Builder()
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
+
+        val retrofit = Retrofit.Builder()
+            .client(httpClient)
+            .baseUrl(BuildConfig.BASE_URL)
+            .addConverterFactory(MoshiConverterFactory.create())
+            .build()
+
+        val configService = retrofit.create(ConfigService::class.java)
+        return  lifecycleScope.async {
+             configService.getConfig()
+        }
     }
 
     private fun setUpWorkManager() {
@@ -131,10 +159,10 @@ class MainActivity : AppCompatActivity() {
         alarmManager.setExact(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 10_000, pendingIntent)
     }
 
-    private fun setUpLogo() {
+    private fun setUpLogo(url:String) {
         Glide
             .with(this)
-            .load("https://png.pngtree.com/element_pic/00/16/07/115783931601b5c.jpg")
+            .load(url)
             .centerInside()
             .placeholder(R.drawable.ic_launcher_background)
             .into(findViewById(R.id.logo))
