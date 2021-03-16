@@ -19,6 +19,7 @@ import android.media.MediaPlayer
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
@@ -52,10 +53,12 @@ class MainActivity : AppCompatActivity() {
         const val ChannelId = "1"
         const val NotificationId = 1
         const val CameraKey = "CameraKey"
+        const val ConfigSaveStateKey = "ConfigSaveStateKey"
         const val AlarmRequestCode = 123
     }
 
     private var image: Bitmap? = null
+    private var config: Config? = null
 
     private val startCameraForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -102,16 +105,22 @@ class MainActivity : AppCompatActivity() {
         createNotificationChannel(notificationManager)
 
         lifecycleScope.launch {
-            val config = fetchConfig().await()
-            observeData(notificationManager)
+            val savedConfig = savedInstanceState?.getParcelable<Config>(ConfigSaveStateKey)
+            config = savedConfig ?: fetchConfig().await()
 
-            setUpLogo(config.logoUrl)
-            scheduleAlarm()
+            observeData(notificationManager)
+            setUpLogo(config!!.logoUrl)
+            //scheduleAlarm()
             setUpWorkManager()
         }
     }
 
-    private fun fetchConfig() : Deferred<Config> {
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putParcelable(ConfigSaveStateKey, config)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun fetchConfig(): Deferred<Config> {
         val httpClient = OkHttpClient.Builder()
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
@@ -124,8 +133,8 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         val configService = retrofit.create(ConfigService::class.java)
-        return  lifecycleScope.async {
-             configService.getConfig()
+        return lifecycleScope.async {
+            configService.getConfig()
         }
     }
 
@@ -159,7 +168,7 @@ class MainActivity : AppCompatActivity() {
         alarmManager.setExact(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 10_000, pendingIntent)
     }
 
-    private fun setUpLogo(url:String) {
+    private fun setUpLogo(url: String) {
         Glide
             .with(this)
             .load(url)
@@ -223,19 +232,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun observeData(notificationManager: NotificationManager) {
         lifecycleScope.launch {
-            combine(
-                accelerometerData.consumeAsFlow().distinctUntilChangedBy { it.value },
-                proximityData.consumeAsFlow().distinctUntilChangedBy { it.value }
-            ) { accelerometerEvent, proximityEvent -> accelerometerEvent + proximityEvent }
-                .collect { sensorOutput ->
-                    sensorOutput.map { sensorOutput -> sensorOutput.toDisplayValue() }
-                        .reduce { acc, sensorOutput ->
-                            "$acc\n$sensorOutput"
-                        }.also { label ->
-                            createNotification(notificationManager, label)
-                            findViewById<TextView>(R.id.sensor_output).text = label
-                        }
-                }
+
+            proximityData.consumeAsFlow().distinctUntilChangedBy { it.value }.collect {
+                createNotification(notificationManager, it.toDisplayValue())
+                findViewById<TextView>(R.id.sensor_output).text = it.toDisplayValue()
+            }
+             /*  combine(
+                    accelerometerData.consumeAsFlow().distinctUntilChangedBy { it.value },
+                    proximityData.consumeAsFlow().distinctUntilChangedBy { it.value }
+                ) { accelerometerEvent, proximityEvent -> accelerometerEvent + proximityEvent }
+                    .collect { sensorOutput ->
+                        sensorOutput.map { sensorOutput -> sensorOutput.toDisplayValue() }
+                            .reduce { acc, sensorOutput ->
+                                "$acc\n$sensorOutput"
+                            }.also { label ->
+                                createNotification(notificationManager, label)
+                                findViewById<TextView>(R.id.sensor_output).text = label
+                            }
+                    }*/
         }
     }
 
