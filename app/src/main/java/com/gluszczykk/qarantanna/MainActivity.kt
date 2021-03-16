@@ -1,10 +1,12 @@
 package com.gluszczykk.qarantanna
 
 import android.app.Activity
+import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.hardware.Sensor
 import android.hardware.Sensor.TYPE_ACCELEROMETER
@@ -16,6 +18,7 @@ import android.media.MediaPlayer
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,6 +39,7 @@ class MainActivity : AppCompatActivity() {
         const val ChannelId = "1"
         const val NotificationId = 1
         const val CameraKey = "CameraKey"
+        const val AlarmRequestCode = 123
     }
 
     private var image: Bitmap? = null
@@ -86,6 +90,14 @@ class MainActivity : AppCompatActivity() {
         observeData(notificationManager)
 
         setUpLogo()
+        scheduleAlarm()
+    }
+
+    private fun scheduleAlarm() {
+        val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, VideoActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(this, AlarmRequestCode, intent, 0)
+        alarmManager.setExact(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 10_000, pendingIntent)
     }
 
     private fun setUpLogo() {
