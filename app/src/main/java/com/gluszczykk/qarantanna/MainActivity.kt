@@ -21,6 +21,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
@@ -83,6 +84,17 @@ class MainActivity : AppCompatActivity() {
         setUpAccelerometerSensor(sensorManager)
         createNotificationChannel(notificationManager)
         observeData(notificationManager)
+
+        setUpLogo()
+    }
+
+    private fun setUpLogo() {
+        Glide
+            .with(this)
+            .load("https://png.pngtree.com/element_pic/00/16/07/115783931601b5c.jpg")
+            .centerInside()
+            .placeholder(R.drawable.ic_launcher_background)
+            .into(findViewById(R.id.logo))
     }
 
     override fun onDestroy() {

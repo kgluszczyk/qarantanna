@@ -14,6 +14,9 @@ class MusicService : Service() {
             setDataSource("https://file-examples-com.github.io/uploads/2017/11/file_example_MP3_1MG.mp3")
             prepare()
             start()
+            setOnCompletionListener {
+                stopSelf()
+            }
         }
         return onStartCommand
     }
