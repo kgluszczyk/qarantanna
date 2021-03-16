@@ -34,6 +34,7 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
@@ -106,10 +108,20 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val savedConfig = savedInstanceState?.getParcelable<Config>(ConfigSaveStateKey)
-            config = savedConfig ?: fetchConfig().await()
+            withContext(Dispatchers.IO) {
+                kotlin.runCatching {
+                    App.database.configDao().insert(fetchConfig().await())
+                }
+
+                App.database.configDao().get().collect { config ->
+                    this@MainActivity.config = savedConfig
+                    withContext(Dispatchers.Main) {
+                        setUpLogo(config.logoUrl)
+                    }
+                }
+            }
 
             observeData(notificationManager)
-            setUpLogo(config!!.logoUrl)
             //scheduleAlarm()
             setUpWorkManager()
         }
@@ -237,19 +249,19 @@ class MainActivity : AppCompatActivity() {
                 createNotification(notificationManager, it.toDisplayValue())
                 findViewById<TextView>(R.id.sensor_output).text = it.toDisplayValue()
             }
-             /*  combine(
-                    accelerometerData.consumeAsFlow().distinctUntilChangedBy { it.value },
-                    proximityData.consumeAsFlow().distinctUntilChangedBy { it.value }
-                ) { accelerometerEvent, proximityEvent -> accelerometerEvent + proximityEvent }
-                    .collect { sensorOutput ->
-                        sensorOutput.map { sensorOutput -> sensorOutput.toDisplayValue() }
-                            .reduce { acc, sensorOutput ->
-                                "$acc\n$sensorOutput"
-                            }.also { label ->
-                                createNotification(notificationManager, label)
-                                findViewById<TextView>(R.id.sensor_output).text = label
-                            }
-                    }*/
+            /*  combine(
+                   accelerometerData.consumeAsFlow().distinctUntilChangedBy { it.value },
+                   proximityData.consumeAsFlow().distinctUntilChangedBy { it.value }
+               ) { accelerometerEvent, proximityEvent -> accelerometerEvent + proximityEvent }
+                   .collect { sensorOutput ->
+                       sensorOutput.map { sensorOutput -> sensorOutput.toDisplayValue() }
+                           .reduce { acc, sensorOutput ->
+                               "$acc\n$sensorOutput"
+                           }.also { label ->
+                               createNotification(notificationManager, label)
+                               findViewById<TextView>(R.id.sensor_output).text = label
+                           }
+                   }*/
         }
     }
 
