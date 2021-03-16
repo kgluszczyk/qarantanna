@@ -1,5 +1,7 @@
 package com.gluszczykk.qarantanna
 
+import android.Manifest.permission.ACCESS_FINE_LOCATION
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -19,6 +21,7 @@ import android.media.MediaPlayer
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Looper
 import android.os.PersistableBundle
 import android.os.SystemClock
 import android.provider.MediaStore
@@ -35,7 +38,18 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.bumptech.glide.Glide
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Marker
+import com.google.android.gms.maps.model.MarkerOptions
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -50,6 +64,7 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
+import java.util.jar.Manifest
 
 class MainActivity : AppCompatActivity() {
 
@@ -64,10 +79,43 @@ class MainActivity : AppCompatActivity() {
 
     private var image: Bitmap? = null
     private var config: Config? = null
+    private var map: GoogleMap? = null
+    private var marker: Marker? = null
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     private val startCameraForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             image = result.data?.extras?.get("data") as Bitmap
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private val addLocationMarkerPermissionRequest = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) {
+            val request = LocationRequest.create().apply {
+                priority = PRIORITY_BALANCED_POWER_ACCURACY
+                interval = 10_000
+                fastestInterval = 5_000
+            }
+            fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
+        }
+    }
+
+    private val  locationCallback = object: LocationCallback(){
+
+        override fun onLocationResult(locationResult: LocationResult) {
+            addMarker(LatLng(locationResult.lastLocation.latitude, locationResult.lastLocation.longitude))
+            super.onLocationResult(locationResult)
+        }
+
+    }
+
+    private fun addMarker(latlang: LatLng) {
+        map?.run {
+            marker?.remove()
+            marker = addMarker(MarkerOptions().title("My location").position(latlang))
+            animateCamera(CameraUpdateFactory.newLatLngZoom(latlang, 15f))
         }
     }
 
@@ -102,6 +150,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         setContentView(R.layout.activity_main)
         val sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -153,6 +202,12 @@ class MainActivity : AppCompatActivity() {
             builder.addToBackStack(null)
         }
         builder.commit()
+        mapFragment.getMapAsync {
+            this.map = it
+            addLocationMarkerPermissionRequest.launch(
+                ACCESS_FINE_LOCATION
+            )
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
