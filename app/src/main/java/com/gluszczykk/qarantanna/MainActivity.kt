@@ -23,6 +23,7 @@ import android.os.PersistableBundle
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -118,7 +119,7 @@ class MainActivity : AppCompatActivity() {
                 App.database.configDao().get().collect { config ->
                     this@MainActivity.config = savedConfig
                     withContext(Dispatchers.Main) {
-                        setUpLogo(config.logoUrl)
+                        //setUpLogo(config.logoUrl)
                     }
                 }
             }
@@ -131,13 +132,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setUpMap() {
-        findViewById<ImageView>(R.id.logo).setOnClickListener {
-            val mapFragment = SupportMapFragment()
-            supportFragmentManager
-                .beginTransaction()
-                .replace(android.R.id.content, mapFragment)
-                .commit()
+        val isTablet = findViewById<FrameLayout>(R.id.map_container) != null
+        val container = if (isTablet) R.id.map_container else R.id.map_container_small
+        if (isTablet) {
+            showMap(container, isTablet)
+        } else {
+            findViewById<ImageView>(R.id.logo).setOnClickListener {
+                showMap(container, isTablet)
+            }
         }
+    }
+
+    private fun showMap(container: Int, isFragment: Boolean) {
+        val mapFragment = SupportMapFragment()
+        val builder = supportFragmentManager
+            .beginTransaction()
+            .replace(container, mapFragment)
+
+        if (!isFragment) {
+            builder.addToBackStack(null)
+        }
+        builder.commit()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
