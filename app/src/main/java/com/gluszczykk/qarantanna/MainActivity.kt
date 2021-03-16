@@ -23,6 +23,7 @@ import android.os.PersistableBundle
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationCompat
@@ -33,6 +34,7 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.bumptech.glide.Glide
+import com.google.android.gms.maps.SupportMapFragment
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -124,6 +126,17 @@ class MainActivity : AppCompatActivity() {
             observeData(notificationManager)
             //scheduleAlarm()
             setUpWorkManager()
+        }
+        setUpMap()
+    }
+
+    private fun setUpMap() {
+        findViewById<ImageView>(R.id.logo).setOnClickListener {
+            val mapFragment = SupportMapFragment()
+            supportFragmentManager
+                .beginTransaction()
+                .replace(android.R.id.content, mapFragment)
+                .commit()
         }
     }
 
