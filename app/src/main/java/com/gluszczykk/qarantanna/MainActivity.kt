@@ -5,6 +5,7 @@ import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
@@ -24,6 +25,11 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.Worker
+import androidx.work.WorkerParameters
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
@@ -31,6 +37,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -91,6 +98,30 @@ class MainActivity : AppCompatActivity() {
 
         setUpLogo()
         scheduleAlarm()
+        setUpWorkManager()
+    }
+
+    private fun setUpWorkManager() {
+        val musicRequest = PeriodicWorkRequestBuilder<MusicWorker>(15, TimeUnit.MINUTES).build()
+
+        WorkManager.getInstance(this)
+            .enqueueUniquePeriodicWork("Play Music", ExistingPeriodicWorkPolicy.KEEP, musicRequest)
+
+    }
+
+    class MusicWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
+
+        val mediaPlayer = MediaPlayer()
+
+        override fun doWork(): Result {
+            mediaPlayer.run {
+                setDataSource("https://file-examples-com.github.io/uploads/2017/11/file_example_MP3_1MG.mp3")
+                prepare()
+                start()
+            }
+            Thread.sleep(mediaPlayer.duration.toLong())
+            return Result.success()
+        }
     }
 
     private fun scheduleAlarm() {
